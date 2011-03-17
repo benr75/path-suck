@@ -4,10 +4,18 @@ require 'json'
 require 'nokogiri'
 require 'ap'
 require 'redis'
+require 'twitter'
+require 'open-uri'
+require 'json'
 
 PATH_CONFIG = YAML.load(File.read("path_config.yml"))
 
-# TWIT PIC: 5c61b4cfb2cc6dad01ba5fb0cdbd64a0
+Twitter.configure do |config|
+  config.consumer_key       = PATH_CONFIG["twitter"]["consumer_key"]
+  config.consumer_secret    = PATH_CONFIG["twitter"]["consumer_secret"]
+  config.oauth_token        = PATH_CONFIG["twitter"]["oauth_token"]
+  config.oauth_token_secret = PATH_CONFIG["twitter"]["oauth_token_secret"]
+end
 
 # Create a new mechanize object
 agent = Mechanize.new
@@ -46,9 +54,25 @@ end
 if post_data
   clean_data = post_data.strip.gsub("Path.postData = ", "").chop
   json_data = JSON.parse(clean_data)
-  
+  redis = Redis.new
+  client = Twitter::Client.new
   json_data.each do |photo|
-    ap photo["photo"]["original"]["url"]
-    puts '======='
+    if redis.get("not_first") == nil
+      redis.set(photo["photo"]["original"]["url"], "PULLED")
+      ap photo["photo"]["original"]["url"]
+      puts '======='
+    else
+      if redis.get(photo["photo"]["original"]["url"])
+        puts "already have it"
+      else
+        puts "New Path Item!"
+        login = PATH_CONFIG["bitly"]["login"]
+        api_key = PATH_CONFIG["bitly"]["api_key"]
+        url = photo["photo"]["original"]["url"]
+        result = JSON.parse(open("http://api.bitly.com/v3/shorten?login=#{login}&apiKey=#{api_key}&longUrl=#{url}&format=json").read)        
+        client.update("#{result["data"]["url"]} #path")
+      end
+    end
+    redis.set("not_first", "true")
   end
 end
