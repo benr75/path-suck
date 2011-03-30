@@ -31,13 +31,11 @@ page = agent.submit(form, form.buttons.first)
 
 my_path_page = agent.get("https://www.path.com/#{PATH_CONFIG["path"]["user"]}")
 
-puts my_path_page.body # Print out the body
+ap my_path_page.body # Print out the body
 
 user_data = nil
 post_data = nil
 profile_id = nil
-
-#doc = Nokogiri::HTML(File.open("test.html"))
 
 doc = Nokogiri::HTML(my_path_page.body)
 
@@ -51,6 +49,8 @@ doc.css('script').each do |script|
   end
 end
 
+# If we get some data, make sure to not just SPAM twitter the first run with all our Path posts, skip everything not in Redis on first run, THEN start processing path moments.
+
 if post_data
   clean_data = post_data.strip.gsub("Path.postData = ", "").chop
   json_data = JSON.parse(clean_data)
@@ -58,21 +58,30 @@ if post_data
   client = Twitter::Client.new
   json_data.each do |photo|
     if redis.get("not_first") == nil
-      redis.set(photo["photo"]["original"]["url"], "PULLED")
-      ap photo["photo"]["original"]["url"]
+      redis.set(photo["photo"]["85_484"]["url"], "PULLED")
+      ap photo["photo"]["85_484"]["url"]
       puts '======='
     else
-      if redis.get(photo["photo"]["original"]["url"])
-        puts "already have it"
+      if redis.get(photo["photo"]["85_484"]["url"])
+        puts "Path Moment Already Processed"
+        #ap photo
+        #ap url
       else
-        puts "New Path Item!"
+        puts "New Path Moment!"
+        redis.set(photo["photo"]["85_484"]["url"], "PULLED")
         login = PATH_CONFIG["bitly"]["login"]
         api_key = PATH_CONFIG["bitly"]["api_key"]
-        url = photo["photo"]["original"]["url"]
+        if photo["private"]
+          # Private moments link to the 85_484 photo
+          url = photo["photo"]["85_484"]["url"]
+        else
+          # Public moments link directly to the Path Page
+          url = "https://www.path.com/#{photo["creator"]["username"]}/posts/#{photo["id"]}/public"
+        end        
         result = JSON.parse(open("http://api.bitly.com/v3/shorten?login=#{login}&apiKey=#{api_key}&longUrl=#{url}&format=json").read)        
-        client.update("#{result["data"]["url"]} #path")
+        client.update("Posted to #path #{result["data"]["url"]}")
       end
     end
-    redis.set("not_first", "true")
   end
+  redis.set("not_first", "true")
 end
