@@ -1,0 +1,35 @@
+== PATH SUCK
+
+Have new moments posted to {Path}[https://www.path.com/] go to your twitter account.  
+
+== Getting Started
+
+1. Install redis and the necessary gems
+
+    require 'rubygems'
+    require 'mechanize'
+    require 'json'
+    require 'nokogiri'
+    require 'ap'
+    require 'redis'
+    require 'twitter'
+    require 'open-uri'
+    require 'json'
+
+2. Create your config file based on path_config.yml.example
+
+3. Run the app in test mode
+
+    ruby path_suck.rb test
+    
+4. Setup a cron to run the app in production mode
+    
+    ruby path_suck.rb production
+    
+== Warranty
+
+None, use at your own risk
+
+== License
+
+Path Suck is released under the MIT license.
